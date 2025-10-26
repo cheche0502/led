@@ -4,7 +4,7 @@
 
 int main(){
     //打开视频
-    cv::VideoCapture cap("/home/che/led/装甲板视频.avi");
+    cv::VideoCapture cap("/home/cwy/led/armor.avi");
    
     if (!cap.isOpened())   {std::cout << "打不开视频\n";  return -1; }
    
@@ -17,7 +17,7 @@ int main(){
     std::cout <<"帧宽×高 "<<fw<<"×"<< fh <<" FPS"<<fps<<std::endl;//确认
 
     //创建了一个输出的视频，并且他的基本信息应该与输入的装甲板视频相同，fps 长宽
-    cv::VideoWriter rec("/home/che/led/装甲板视频_out.avi",cv::VideoWriter::fourcc('M','J','P','G'), fps,cv::Size(fw, fh));
+    cv::VideoWriter rec("/home/cwy/led/armor_out.avi",cv::VideoWriter::fourcc('M','J','P','G'), fps,cv::Size(fw, fh));
     
     if (!rec.isOpened())   { std::cout << "无法录制\n"; return -1; }
 
@@ -38,7 +38,7 @@ int main(){
         if (cv::waitKey(100) == 27) break;  
     }
 
-    std::cout << "\n  正常结束，输出已保存为 装甲板视频_out.avi" << std::endl;
+    std::cout << "\n  正常结束，输出已保存为 armor_out.avi" << std::endl;
     cv::destroyAllWindows();
     return 0;
 }

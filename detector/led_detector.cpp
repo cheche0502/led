@@ -30,6 +30,27 @@ static void orderCorners(cv::Point2f pts[4])//pts可以说是指向cv::Point2f�
 
 LEDdetector::LEDdetector(){
     std::cout<<"初始化完成 ——"<<std::endl;
+    
+    // 添加相机内参和畸变系数
+    camera_matrix = (cv::Mat_<double>(3, 3) <<
+        9.28130989e+02, 0, 3.77572945e+02,
+        0, 9.30138391e+02, 2.83892859e+02,
+        0, 0, 1.0);
+    
+    dist_coeffs = (cv::Mat_<double>(5, 1) <<
+        -2.54433647e-01, 5.69431382e-01, 3.65405229e-03, 
+        -1.09433818e-03, -1.33846840e+00);
+
+    // 添加装甲板3D坐标
+    double armor_width = 0.130;
+    double armor_height = 0.050;
+    
+    armor_3d_points = {
+        cv::Point3f(-armor_width/2, -armor_height/2, 0),
+        cv::Point3f(armor_width/2, -armor_height/2, 0),
+        cv::Point3f(armor_width/2, armor_height/2, 0),
+        cv::Point3f(-armor_width/2, armor_height/2, 0)
+    };
 }
 
 //预处理，把红色通道图分离出来二值化
@@ -130,26 +151,98 @@ LEDdetector::matchArmor(const std::vector<cv::RotatedRect>& lights)
 }
 
 //主入口，并且最终可视化画出图像
-void LEDdetector::detectAndDraw(cv::Mat& image)
-{
-    double start_time=cv::getTickCount();
+void LEDdetector::detectAndDraw(cv::Mat& image) {
+    double start_time = cv::getTickCount();
 
-    cv::Mat binary=channelBinary(image);
-    binary=morphOpen(binary);
-    cv::imshow("Binary",binary); // 调试窗口
+    // 图像预处理
+    cv::Mat binary = channelBinary(image);
+    binary = morphOpen(binary);
+    cv::imshow("Binary", binary);
 
+    // 检测灯条和装甲板
     std::vector<cv::RotatedRect> lights = findLights(binary);
     std::vector<std::vector<cv::Point2f>> all_corners = matchArmor(lights);
 
+    // 计算处理时间
     double end_time = cv::getTickCount();
     double process_time = (end_time - start_time) * 1000 / cv::getTickFrequency();
-    std::cout << "灯条: " << lights.size()<< ", 装甲板: " << all_corners.size() << ", 处理时间: " << process_time << " ms" << std::endl;
-    
+    std::cout << "灯条: " << lights.size() << ", 装甲板: " << all_corners.size() 
+              << ", 处理时间: " << process_time << " ms" << std::endl;
 
-//画出绿色矩形
-for (int i = 0; i < all_corners.size(); i++){
-    std::vector<cv::Point2f> corners = all_corners[i];
-    for (int j = 0; j < 4; j++)
-        cv::line(image, corners[j], corners[(j + 1) % 4], cv::Scalar(0, 255, 0), 2);
+    // 对每个检测到的装甲板进行处理
+    for (int i = 0; i < all_corners.size(); i++) {
+        std::vector<cv::Point2f> corners = all_corners[i];
+        
+        // 检查角点是否有效（在图像范围内）
+        bool corners_valid = true;
+        for (int j = 0; j < 4; j++) {
+            if (corners[j].x < 0 || corners[j].x >= image.cols || 
+                corners[j].y < 0 || corners[j].y >= image.rows) {
+                corners_valid = false;
+                break;
+            }
+        }
+        
+        if (corners_valid) {
+            // 绘制装甲板框
+            for (int j = 0; j < 4; j++) {
+                cv::line(image, corners[j], corners[(j + 1) % 4], cv::Scalar(0, 255, 0), 2);
+            }
+            
+            // 进行PnP解算
+            cv::Vec3d rvec, tvec;
+            if (solveArmorPose(corners, rvec, tvec)) {
+                // 显示距离信息
+                double distance = cv::norm(tvec);
+                std::string dist_text = "Dist: " + std::to_string(distance).substr(0, 4) + "m";
+                cv::putText(image, dist_text, cv::Point(20, 30),
+                           cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
+                
+                // 绘制3D坐标轴
+                float axis_length = 0.15f;
+                std::vector<cv::Point3f> axis_3d = {
+                    cv::Point3f(0, 0, 0),
+                    cv::Point3f(axis_length, 0, 0),
+                    cv::Point3f(0, axis_length, 0),
+                    cv::Point3f(0, 0, axis_length)
+                };
+                
+                std::vector<cv::Point2f> axis_2d;
+                cv::projectPoints(axis_3d, rvec, tvec, camera_matrix, dist_coeffs, axis_2d);
+                
+                // 绘制坐标轴
+                cv::arrowedLine(image, axis_2d[0], axis_2d[1], cv::Scalar(0, 0, 255), 3); // X-红
+                cv::arrowedLine(image, axis_2d[0], axis_2d[2], cv::Scalar(0, 255, 0), 3); // Y-绿
+                cv::arrowedLine(image, axis_2d[0], axis_2d[3], cv::Scalar(255, 0, 0), 3); // Z-蓝
+            }
+        }
+    }
 }
+// PnP位姿解算函数 - 放在主函数后面
+bool LEDdetector::solveArmorPose(const std::vector<cv::Point2f>& corners_2d, cv::Vec3d& rvec, cv::Vec3d& tvec) 
+{
+    // 检查是否有4个角点
+    if (corners_2d.size() != 4) {
+        return false;
+    }
+    
+    // 复制角点并排序
+    std::vector<cv::Point2f> ordered_corners = corners_2d;
+    orderCorners(ordered_corners.data());
+    
+    // 使用EPnP方法计算位姿
+    bool success = cv::solvePnP(armor_3d_points, ordered_corners, 
+                               camera_matrix, dist_coeffs, 
+                               rvec, tvec, false, cv::SOLVEPNP_EPNP);
+    
+    // 如果成功，显示结果
+    if (success) {
+        double distance = cv::norm(tvec);
+        std::cout << "=== 装甲板位姿 ===" << std::endl;
+        std::cout << "位置(X,Y,Z): " 
+                  << tvec[0] << ", " << tvec[1] << ", " << tvec[2] << " m" << std::endl;
+        std::cout << "到相机距离: " << distance << " m" << std::endl;
+    }
+    
+    return success;
 }
