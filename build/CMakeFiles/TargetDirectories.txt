@@ -1,3 +1,0 @@
-/home/che/led/build/CMakeFiles/rebuild_cache.dir
-/home/che/led/build/CMakeFiles/edit_cache.dir
-/home/che/led/build/CMakeFiles/tju.dir
