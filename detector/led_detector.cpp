@@ -29,35 +29,29 @@ static void orderCorners(cv::Point2f pts[4])//pts可以说是指向cv::Point2f�
   
 
 LEDdetector::LEDdetector(){
-    std::cout<<"初始化完成 ——"<<std::endl;
-    
     // 添加相机内参和畸变系数
-    camera_matrix = (cv::Mat_<double>(3, 3) <<
-        9.28130989e+02, 0, 3.77572945e+02,
-        0, 9.30138391e+02, 2.83892859e+02,
-        0, 0, 1.0);
-    
-    dist_coeffs = (cv::Mat_<double>(5, 1) <<
-        -2.54433647e-01, 5.69431382e-01, 3.65405229e-03, 
-        -1.09433818e-03, -1.33846840e+00);
+    camera_matrix = (cv::Mat_<double>(3, 3) <<9.28130989e+02, 0, 3.77572945e+02, 0, 9.30138391e+02, 2.83892859e+02, 0, 0, 1.0);
+    dist_coeffs = (cv::Mat_<double>(5, 1) << -2.54433647e-01, 5.69431382e-01, 3.65405229e-03,-1.09433818e-03, -1.33846840e+00);
 
     // 添加装甲板3D坐标
     double armor_width = 0.130;
     double armor_height = 0.050;
     
-    armor_3d_points = {
+    armor_3d_points =    //装甲板中心点是（0，0）
+     {
         cv::Point3f(-armor_width/2, -armor_height/2, 0),
         cv::Point3f(armor_width/2, -armor_height/2, 0),
         cv::Point3f(armor_width/2, armor_height/2, 0),
         cv::Point3f(-armor_width/2, armor_height/2, 0)
     };
+    std::cout<<"初始化完成 ——"<<std::endl;
 }
 
 //预处理，把红色通道图分离出来二值化
 cv::Mat LEDdetector::channelBinary(const cv::Mat& src)
 {
     cv::Mat hsv;
-    cv::cvtColor(src, hsv, cv::COLOR_BGR2HSV);
+    cv::cvtColor(src, hsv, cv::COLOR_BGR2HSV);//BGR转HSV颜色空间
 
     cv::Mat red1, red2;//由于红色有两个区间我们需要将0~10和160~180都分离出来再合并
     cv::inRange(hsv, cv::Scalar(0, 100, 100), cv::Scalar(10, 255, 255), red1);
@@ -69,7 +63,7 @@ cv::Mat LEDdetector::channelBinary(const cv::Mat& src)
 //形态学开运算，先腐蚀后膨胀
 cv::Mat LEDdetector::morphOpen(const cv::Mat& bin)
 {
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT,  cv::Size(MORPH_KSIZE, MORPH_KSIZE));//必须配合着getStructuringElement的函数先生成形态学核
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT,cv::Size(MORPH_KSIZE, MORPH_KSIZE));//必须配合着getStructuringElement的函数先生成形态学核
     cv::Mat result;
     cv::morphologyEx(bin, result, cv::MORPH_OPEN, kernel);
     return result;
@@ -92,12 +86,11 @@ std::vector<cv::RotatedRect> LEDdetector::findLights(const cv::Mat& bin)
         double short_side = std::min(rect.size.height, rect.size.width);
         double ratio      = long_side/short_side;
         //长宽比定义，长的除以宽的
-
         //最大最小长宽比过滤一下
         if (ratio>LIGHT_MAX_RATIO || ratio<LIGHT_MIN_RATIO) continue;
 
         //角度过滤一下
-        if (std::abs(rect.angle)>LIGHT_MAX_ANGLE) //abs绝对值，因为你ninAreaRect的返回角度是负值
+        if (std::abs(rect.angle)>LIGHT_MAX_ANGLE) //abs绝对值，因为你minAreaRect的返回角度是负值
         continue;
        
         lights.push_back(rect);//筛选出来了符合全部条件的灯条轮廓并且返回
@@ -112,24 +105,24 @@ LEDdetector::matchArmor(const std::vector<cv::RotatedRect>& lights)
     std::vector<std::vector<cv::Point2f>> all_corners;
 
     for (int i=0;i<lights.size();i++){
-        for (int j = i + 1; j < lights.size(); j++){
-            const cv::RotatedRect& left  = lights[i];
+        for (int j = i + 1;j<lights.size();j++){
+            const cv::RotatedRect& left = lights[i];
             const cv::RotatedRect& right = lights[j];
 
             //角度差过滤
-            double angleDiff = std::abs(left.angle - right.angle);
+            double angleDiff = std::abs(left.angle-right.angle);
             if (angleDiff > MATCH_ANGLE_DIFF) continue;
 
-            //长度差过滤
+            //高度比过滤
             double hl = std::max(left.size.height, left.size.width);
             double hr = std::max(right.size.height, right.size.width);
-            double height_ratio = (hl > hr) ? hl / hr : hr / hl;
+            double height_ratio = max(hl/hr,hr/hl);
             if (height_ratio > MATCH_HEIGHT_RATIO) continue;
 
             //距离差过滤
             double dist = cv::norm(left.center - right.center);
-            double maxDist = (hl + hr) * 0.5 * MATCH_CENTER_DIST_RATIO;
-            if (dist > maxDist) continue;
+            double maxDist = (hl+hr)*0.5*MATCH_CENTER_DIST_RATIO;
+            if (dist>maxDist) continue;
 
             //对于四点开始排序
             cv::Point2f left_pts[4], right_pts[4];
@@ -138,7 +131,8 @@ LEDdetector::matchArmor(const std::vector<cv::RotatedRect>& lights)
             orderCorners(right_pts);
 
             //从而从两个机甲板灯条八个顶点筛选出来四个顶点
-            std::vector<cv::Point2f> corners = {
+            std::vector<cv::Point2f> corners = 
+            {
                 left_pts[0],   // 左上
                 right_pts[1],  // 右上
                 right_pts[2],  // 右下
@@ -163,30 +157,23 @@ void LEDdetector::detectAndDraw(cv::Mat& image) {
     std::vector<cv::RotatedRect> lights = findLights(binary);
     std::vector<std::vector<cv::Point2f>> all_corners = matchArmor(lights);
 
-    // 计算处理时间
-    double end_time = cv::getTickCount();
-    double process_time = (end_time - start_time) * 1000 / cv::getTickFrequency();
-    std::cout << "灯条: " << lights.size() << ", 装甲板: " << all_corners.size() 
-              << ", 处理时间: " << process_time << " ms" << std::endl;
-
     // 对每个检测到的装甲板进行处理
-    for (int i = 0; i < all_corners.size(); i++) {
+    for (int i = 0;i<all_corners.size();i++) {
         std::vector<cv::Point2f> corners = all_corners[i];
         
         // 检查角点是否有效（在图像范围内）
         bool corners_valid = true;
         for (int j = 0; j < 4; j++) {
-            if (corners[j].x < 0 || corners[j].x >= image.cols || 
-                corners[j].y < 0 || corners[j].y >= image.rows) {
-                corners_valid = false;
-                break;
+            if (corners[j].x < 0 || corners[j].x >= image.cols || corners[j].y < 0 || corners[j].y >= image.rows)
+            {
+                corners_valid = false; break;
             }
         }
         
         if (corners_valid) {
             // 绘制装甲板框
             for (int j = 0; j < 4; j++) {
-                cv::line(image, corners[j], corners[(j + 1) % 4], cv::Scalar(0, 255, 0), 2);
+                cv::line(image,corners[j],corners[(j+1)%4],cv::Scalar(0,255,0),2);
             }
             
             // 进行PnP解算
@@ -194,12 +181,12 @@ void LEDdetector::detectAndDraw(cv::Mat& image) {
             if (solveArmorPose(corners, rvec, tvec)) {
                 // 显示距离信息
                 double distance = cv::norm(tvec);
-                std::string dist_text = "Dist: " + std::to_string(distance).substr(0, 4) + "m";
+                std::string dist_text ="Dist: "+std::to_string(distance).substr(0,4) +"m";
                 cv::putText(image, dist_text, cv::Point(20, 30),
                            cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2);
                 
                 // 绘制3D坐标轴
-                float axis_length = 0.15f;
+                float axis_length =0.15f; // 15厘米坐标轴
                 std::vector<cv::Point3f> axis_3d = {
                     cv::Point3f(0, 0, 0),
                     cv::Point3f(axis_length, 0, 0),
@@ -207,8 +194,9 @@ void LEDdetector::detectAndDraw(cv::Mat& image) {
                     cv::Point3f(0, 0, axis_length)
                 };
                 
-                std::vector<cv::Point2f> axis_2d;
+                std::vector<cv::Point2f> axis_2d;//存放投影后的二维点
                 cv::projectPoints(axis_3d, rvec, tvec, camera_matrix, dist_coeffs, axis_2d);
+                //参数说明：3D点，旋转向量，平移向量，相机内参，畸变系数，输出的2D点
                 
                 // 绘制坐标轴
                 cv::arrowedLine(image, axis_2d[0], axis_2d[1], cv::Scalar(0, 0, 255), 3); // X-红
@@ -231,16 +219,14 @@ bool LEDdetector::solveArmorPose(const std::vector<cv::Point2f>& corners_2d, cv:
     orderCorners(ordered_corners.data());
     
     // 使用EPnP方法计算位姿
-    bool success = cv::solvePnP(armor_3d_points, ordered_corners, 
-                               camera_matrix, dist_coeffs, 
-                               rvec, tvec, false, cv::SOLVEPNP_EPNP);
+    bool success = cv::solvePnP(armor_3d_points, ordered_corners, camera_matrix, dist_coeffs,rvec, tvec, false, cv::SOLVEPNP_EPNP);
+    //参数说明：3D点，2D点，相机内参，畸变系数，输出的旋转向量，输出的平移向量，是否使用初始估计，使用的方法
     
     // 如果成功，显示结果
     if (success) {
         double distance = cv::norm(tvec);
         std::cout << "=== 装甲板位姿 ===" << std::endl;
-        std::cout << "位置(X,Y,Z): " 
-                  << tvec[0] << ", " << tvec[1] << ", " << tvec[2] << " m" << std::endl;
+        std::cout << "位置(X,Y,Z): " << tvec[0] << ", " << tvec[1] << ", " << tvec[2] << " m" << std::endl;
         std::cout << "到相机距离: " << distance << " m" << std::endl;
     }
     
