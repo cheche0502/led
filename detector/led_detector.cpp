@@ -189,11 +189,6 @@ void LEDdetector::detectAndDraw(cv::Mat& image) {
     // 检测灯条和装甲板
     std::vector<cv::RotatedRect> lights = findLights(binary);
     std::vector<std::vector<cv::Point2f>> all_corners = matchArmor(lights);
-  
-    std::cout << "[FL] passed=" << lights.size() << std::endl;
-
-
-    std::cout << "[MA] pairs=" << all_corners.size() << std::endl;
 
     // 对每个检测到的装甲板进行处理
     for (int i = 0;i<all_corners.size();i++) {
