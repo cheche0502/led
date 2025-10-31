@@ -1,0 +1,3 @@
+/home/che/opencv-4.5.4/led/build/CMakeFiles/rebuild_cache.dir
+/home/che/opencv-4.5.4/led/build/CMakeFiles/edit_cache.dir
+/home/che/opencv-4.5.4/led/build/CMakeFiles/tju.dir

@@ -1,4 +1,4 @@
-# Install script for directory: /home/che/led
+# Install script for directory: /home/che/opencv-4.5.4/led
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -45,5 +45,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/che/led/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/che/opencv-4.5.4/led/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
