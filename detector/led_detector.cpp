@@ -6,16 +6,15 @@
 using std::max;
 using std::min;
 
-
+/*
 // 比较函数，接受重心作为参数
 bool comparePointsWithCenter(const cv::Point2f& a, const cv::Point2f& b, const cv::Point2f& center) {
     double angle_a=std::atan2(a.y -center.y,a.x-center.x);
     double angle_b=std::atan2(b.y -center.y,b.x-center.x);
     return angle_a > angle_b;  //计算正切，来比较a与b相对于中心的角度，这样如果b的角度更大让a在b前面，从而逆时针排序
 }
-
 static void orderCorners(cv::Point2f pts[4])//pts可以说是指向cv::Point2f的一个指针
- {
+ 
     //计算重心
     cv::Point2f center = (pts[0]+pts[1] +pts[2]+pts[3])/4.0f;
     //事实上是把x，y分别做了平均数找到了中心点
@@ -30,7 +29,7 @@ static void orderCorners(cv::Point2f pts[4])//pts可以说是指向cv::Point2f�
     }
 }
 //这个函数是我们用来防止后面，连线的时候无序
-  
+*/  
 
 LEDdetector::LEDdetector(){
     // 添加相机内参和畸变系数
@@ -158,11 +157,7 @@ std::vector<cv::RotatedRect> LEDdetector::findLights(const cv::Mat& bin)
                 cv::Point2f(right_x, top_y),    // 右上角
                 cv::Point2f(right_x, bottom_y), // 右下角
                 cv::Point2f(left_x, bottom_y)   // 左下角
-            };
-            
-            // 对角点进行逆时针排序
-            orderCorners(armor_corners.data());
-            
+            };    
             // 计算装甲板面积
             double armor_area = cv::contourArea(armor_corners);
             possible_armors.push_back({armor_corners, armor_area});
