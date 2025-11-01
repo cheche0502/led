@@ -4,21 +4,16 @@
 
 int main(){
     //打开视频
-    cv::VideoCapture cap("/home/che/opencv-4.5.4/led/armor.avi");
-   
-    if (!cap.isOpened())   {std::cout << "打不开视频\n";  return -1; }
-   
+   cv::VideoCapture cap("/home/che/opencv-4.5.4/led/armor.avi");
+   if (!cap.isOpened())   {std::cout << "打不开视频\n";  return -1; }
    
    int fw = cap.get(cv::CAP_PROP_FRAME_WIDTH);
    int fh = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
    double fps = cap.get(cv::CAP_PROP_FPS);
+   std::cout <<"帧宽×高 "<<fw<<"×"<< fh <<" FPS"<<fps<<std::endl;//确认
 
-
-    std::cout <<"帧宽×高 "<<fw<<"×"<< fh <<" FPS"<<fps<<std::endl;//确认
-
-    //创建了一个输出的视频，并且他的基本信息应该与输入的装甲板视频相同，fps 长宽
+    //创建了一个输出的视频，并且它的基本信息应该与输入的装甲板视频相同，fps  长  宽
     cv::VideoWriter rec("/home/che/opencv-4.5.4/led/armor_out.avi",cv::VideoWriter::fourcc('M','J','P','G'), fps,cv::Size(fw, fh));
-    
     if (!rec.isOpened())   { std::cout << "无法录制\n"; return -1; }
 
     //实例化检测灯条的检测器
